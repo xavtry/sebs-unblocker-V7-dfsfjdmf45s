@@ -1,5 +1,15 @@
-function safeUrl(u){
-  try { return new URL(u).href; } catch { return null; }
+// small util helpers used across proxy modules
+
+function joinUrl(base, relative) {
+  try {
+    return new URL(relative, base).href;
+  } catch (e) {
+    return relative;
+  }
 }
-function sameOrigin(a,b){ try { return new URL(a).origin === new URL(b).origin; } catch { return false; } }
-module.exports = { safeUrl, sameOrigin };
+
+function shortHost(urlStr) {
+  try { return new URL(urlStr).hostname; } catch { return urlStr; }
+}
+
+module.exports = { joinUrl, shortHost };
