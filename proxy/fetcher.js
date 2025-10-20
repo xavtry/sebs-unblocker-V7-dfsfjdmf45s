@@ -1,19 +1,26 @@
-const axios = require('axios');
-const { log } = require('./logger');
-const config = require('./config');
+const fetch = require('node-fetch');
+const { logger } = require('./logger');
 
-async function fetchText(url){
-  const res = await axios.get(url, {
-    responseType: 'text',
-    timeout: config.fetch.timeout,
-    headers: { 'User-Agent': config.fetch.userAgent }
-  });
-  return { body: res.data, contentType: res.headers['content-type'] || 'text/html' };
+async function fetchText(url, timeout = 15000) {
+  const controller = new (require('node-fetch').AbortController)();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, { redirect:'follow', signal: controller.signal, headers:{ 'User-Agent':'SebUnblocker/1.0' }});
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('text') || ct.includes('html') || ct.includes('json')) {
+      const txt = await res.text();
+      clearTimeout(id);
+      return { ok:true, text: txt, contentType: ct };
+    } else {
+      // non-text resource
+      clearTimeout(id);
+      return { ok:false, nonText:true, contentType: ct };
+    }
+  } catch (err) {
+    clearTimeout(id);
+    logger('fetcher error ' + err.message);
+    throw err;
+  }
 }
 
-async function fetchResource(url){
-  const res = await axios.get(url, { responseType: 'stream', timeout: config.fetch.timeout, headers: { 'User-Agent': config.fetch.userAgent }});
-  return { stream: res.data, contentType: res.headers['content-type'] || null };
-}
-
-module.exports = { fetchText, fetchResource };
+module.exports = { fetchText };
