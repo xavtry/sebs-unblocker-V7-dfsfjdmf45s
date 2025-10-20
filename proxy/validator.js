@@ -1,20 +1,26 @@
-const { URL } = require('url');
+// validates input URLs and blocks non-http(s) and private IPs
+const dns = require('dns');
+const net = require('net');
+const { logger } = require('./logger');
 
-function isPrivateHost(hostname){
-  // blunt check: block localhost and private ranges by name
-  if (!hostname) return true;
-  const low = hostname.toLowerCase();
-  if (low === 'localhost' || low === '127.0.0.1') return true;
-  // could add IP range checks; keep simple for now
+function isLocalIP(host) {
+  if (!host) return true;
+  // quick checks for private ranges
+  if (host.startsWith('127.') || host === 'localhost') return true;
+  if (host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.')) return true;
   return false;
 }
 
-function validateUrl(u){
+function validateUrl(input) {
   try {
-    const url = new URL(u);
-    if (!/^https?:$/i.test(url.protocol)) return false;
-    if (isPrivateHost(url.hostname)) return false;
-    return true;
-  } catch { return false; }
+    const u = new URL(input);
+    if (!['http:', 'https:'].includes(u.protocol)) return { ok:false, reason: 'Unsupported protocol' };
+    const host = u.hostname;
+    if (isLocalIP(host)) return { ok:false, reason: 'Local/private IP not allowed' };
+    return { ok:true, url: u.href, host };
+  } catch (err) {
+    return { ok:false, reason: 'Invalid URL' };
+  }
 }
+
 module.exports = { validateUrl };
