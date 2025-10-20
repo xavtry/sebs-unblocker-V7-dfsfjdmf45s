@@ -1,10 +1,10 @@
 const fs = require('fs');
-const logPath = './logs/proxy.log';
+const path = require('path');
+const logfile = path.join(__dirname, '..', 'logs', 'proxy.log');
 
-function logger(msg) {
-  console.log(msg);
-  fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+function write(line){
+  const s = `[${new Date().toISOString()}] ${line}\n`;
+  fs.appendFile(logfile, s, ()=>{});
+  console.log(line);
 }
-
-module.exports = { logger };
-
+module.exports = { log: write };
