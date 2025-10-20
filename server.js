@@ -1,56 +1,50 @@
 const express = require('express');
 const path = require('path');
-const fetcher = require('./proxy/fetcher');
-const rewrite = require('./proxy/rewrite');
-const puppeteerRender = require('./proxy/puppeteerRender');
+const { handleProxy } = require('./proxy/proxyMiddleware');
 const searchAPI = require('./proxy/searchAPI');
-const proxyMiddleware = require('./proxy/proxyMiddleware');
-const { logger } = require('./proxy/logger');
-const config = require('./proxy/config');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Root route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// health
+app.get('/_health', (req,res)=>res.send('ok'));
 
-// Proxy route
-app.get('/proxy', proxyMiddleware, async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) return res.status(400).send('No URL specified');
+// main proxy endpoint: /proxy?url=
+app.get('/proxy', handleProxy);
 
+// resource fetch (images/css/js) - proxies raw resources
+app.get('/resource', async (req,res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send('missing url');
   try {
-    let content;
-    if (config.usePuppeteer) {
-      content = await puppeteerRender(targetUrl);
-    } else {
-      content = await fetcher(targetUrl);
-    }
-    const rewritten = await rewrite(content, targetUrl);
-    res.send(rewritten);
-  } catch (err) {
-    logger(`Error fetching ${targetUrl}: ${err.message}`);
-    res.status(500).sendFile(path.join(__dirname, 'views', 'error.html'));
+    const { stream, contentType } = await require('./proxy/fetcher').fetchResource(url);
+    if (contentType) res.setHeader('content-type', contentType);
+    stream.pipe(res);
+  } catch (e) {
+    console.error('resource error', e);
+    res.status(502).send('Resource fetch error');
   }
 });
 
-// Search route
-app.get('/search', async (req, res) => {
-  const query = req.query.q;
-  if (!query) return res.status(400).send('No query provided');
-
+// search endpoint
+app.get('/search', async (req,res) => {
+  const q = req.query.q;
+  if (!q) return res.status(400).json([]);
   try {
-    const results = await searchAPI(query);
+    const results = await searchAPI(q);
     res.json(results);
-  } catch (err) {
-    logger(`Search error: ${err.message}`);
-    res.status(500).json({ error: 'Search failed' });
+  } catch (e) {
+    console.error('search error', e);
+    res.status(500).json([]);
   }
 });
 
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+// fallback to index (keeps SPA working)
+app.get('*', (req,res)=> {
+  res.sendFile(path.join(__dirname,'public','index.html'));
+});
+
+app.listen(PORT, ()=>console.log(`Server listening ${PORT}`));
