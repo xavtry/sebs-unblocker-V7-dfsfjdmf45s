@@ -1,26 +1,17 @@
 const fetch = require('node-fetch');
-const { logger } = require('./logger');
+const { attachRequestCookies, forwardSetCookieHeaders } = require('./cookies');
 
-async function fetchText(url, timeout = 15000) {
-  const controller = new (require('node-fetch').AbortController)();
-  const id = setTimeout(() => controller.abort(), timeout);
-  try {
-    const res = await fetch(url, { redirect:'follow', signal: controller.signal, headers:{ 'User-Agent':'SebUnblocker/1.0' }});
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('text') || ct.includes('html') || ct.includes('json')) {
-      const txt = await res.text();
-      clearTimeout(id);
-      return { ok:true, text: txt, contentType: ct };
-    } else {
-      // non-text resource
-      clearTimeout(id);
-      return { ok:false, nonText:true, contentType: ct };
-    }
-  } catch (err) {
-    clearTimeout(id);
-    logger('fetcher error ' + err.message);
-    throw err;
-  }
+async function fetchUrl(url, req, res, opts = {}) {
+  const fetchOptions = { method: 'GET', redirect: 'follow', ...opts };
+  attachRequestCookies(fetchOptions, req);
+
+  const response = await fetch(url, fetchOptions);
+  forwardSetCookieHeaders(res, response);
+
+  const contentType = response.headers.get('content-type') || '';
+  const body = contentType.includes('application/json') ? await response.json() : await response.text();
+
+  return { body, contentType };
 }
 
-module.exports = { fetchText };
+module.exports = { fetchUrl };
