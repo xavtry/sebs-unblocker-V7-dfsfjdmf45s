@@ -1,1 +1,16 @@
+/* Base styles for the page; your index.html uses inline CSS waves, but this file can hold extras */
+:root {
+  --neon: #00ff7f;
+  --bg: #010a0a;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family: 'Segoe UI',sans-serif;background:var(--bg);color:var(--neon)}
+.header{display:flex;align-items:center;padding:8px 12px}
+.tabs{display:flex;gap:6px;padding:8px}
+.tab{padding:8px 12px;background:#002200;border-radius:6px;color:var(--neon);cursor:pointer}
+.tab.active{background:var(--neon);color:#010a0a}
+.container{display:flex;flex-direction:column;flex:1}
+.tabContent{display:none;flex-direction:column;flex:1}
+.tabContent.active{display:flex}
+.loading{color:var(--neon)}
 
